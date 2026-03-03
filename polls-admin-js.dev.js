@@ -3,6 +3,41 @@ var global_poll_aid = 0;
 var global_poll_aid_votes  = 0;
 var count_poll_answer_new = 0;
 var count_poll_answer = 3;
+var poll_answer_media_frame = null;
+
+function bind_poll_answer_image_handlers() {
+	jQuery(document).off('click', '.poll-answer-image-upload').on('click', '.poll-answer-image-upload', function(e) {
+		e.preventDefault();
+		var button = jQuery(this);
+		var row = button.closest('td');
+		var imageIdInput = row.find('.poll-answer-image-id');
+		var imagePreview = row.find('.poll-answer-image-preview');
+		var removeButton = row.find('.poll-answer-image-remove');
+
+		poll_answer_media_frame = wp.media({
+			title: pollsAdminL10n.text_upload_poll_answer_image,
+			button: { text: pollsAdminL10n.text_upload_poll_answer_image },
+			multiple: false
+		});
+
+		poll_answer_media_frame.on('select', function() {
+			var attachment = poll_answer_media_frame.state().get('selection').first().toJSON();
+			imageIdInput.val(attachment.id);
+			imagePreview.html('<img src="' + attachment.url + '" alt="" />');
+			removeButton.show();
+		});
+
+		poll_answer_media_frame.open();
+	});
+
+	jQuery(document).off('click', '.poll-answer-image-remove').on('click', '.poll-answer-image-remove', function(e) {
+		e.preventDefault();
+		var row = jQuery(this).closest('td');
+		row.find('.poll-answer-image-id').val(0);
+		row.find('.poll-answer-image-preview').empty();
+		jQuery(this).hide();
+	});
+}
 
 // Delete Poll
 function delete_poll(poll_id, poll_confirm, nonce) {
@@ -152,7 +187,11 @@ function check_totalvotes() {
 // Add Poll's Answer In Add Poll Page
 function add_poll_answer_add() {
 	jQuery(document).ready(function($) {
-		$('#poll_answers').append('<tr id="poll-answer-' + count_poll_answer + '"><th width="20%" scope="row" valign="top"></th><td width="80%"><input type="text" size="50" maxlength="200" name="polla_answers[]" />&nbsp;&nbsp;&nbsp;<input type="button" value="' + pollsAdminL10n.text_remove_poll_answer + '" onclick="remove_poll_answer_add(' + count_poll_answer + ');" class="button" /></td></tr>');
+		var imageFields = '';
+		if(parseInt(pollsAdminL10n.has_image_support, 10) === 1) {
+			imageFields = '<input type="hidden" class="poll-answer-image-id" name="polla_answers_image_ids[]" value="0" /> <span class="poll-answer-image-preview"></span> <input type="button" value="' + pollsAdminL10n.text_upload_poll_answer_image + '" class="button poll-answer-image-upload" /> <input type="button" value="' + pollsAdminL10n.text_remove_poll_answer_image + '" class="button poll-answer-image-remove" style="display:none;" />';
+		}
+		$('#poll_answers').append('<tr id="poll-answer-' + count_poll_answer + '"><th width="20%" scope="row" valign="top"></th><td width="80%"><input type="text" size="50" maxlength="200" name="polla_answers[]" />' + imageFields + '&nbsp;&nbsp;&nbsp;<input type="button" value="' + pollsAdminL10n.text_remove_poll_answer + '" onclick="remove_poll_answer_add(' + count_poll_answer + ');" class="button" /></td></tr>');
 		count_poll_answer++;
 		reorder_answer_num();
 	});
@@ -169,11 +208,19 @@ function remove_poll_answer_add(poll_answer_id) {
 // Add Poll's Answer In Edit Poll Page
 function add_poll_answer_edit() {
 	jQuery(document).ready(function($) {
-		$('#poll_answers').append('<tr id="poll-answer-new-' + count_poll_answer_new + '"><th width="20%" scope="row" valign="top"></th><td width="60%"><input type="text" size="50" maxlength="200" name="polla_answers_new[]" />&nbsp;&nbsp;&nbsp;<input type="button" value="' + pollsAdminL10n.text_remove_poll_answer + '" onclick="remove_poll_answer_edit(' + count_poll_answer_new + ');" class="button" /></td><td width="20%" align="' + pollsAdminL10n.text_direction + '">0 <input type="text" size="4" name="polla_answers_new_votes[]" value="0" onblur="check_totalvotes();" /></td></tr>');
+		var imageFields = '';
+		if(parseInt(pollsAdminL10n.has_image_support, 10) === 1) {
+			imageFields = '<input type="hidden" class="poll-answer-image-id" name="polla_answers_new_image_ids[]" value="0" /> <span class="poll-answer-image-preview"></span> <input type="button" value="' + pollsAdminL10n.text_upload_poll_answer_image + '" class="button poll-answer-image-upload" /> <input type="button" value="' + pollsAdminL10n.text_remove_poll_answer_image + '" class="button poll-answer-image-remove" style="display:none;" />';
+		}
+		$('#poll_answers').append('<tr id="poll-answer-new-' + count_poll_answer_new + '"><th width="20%" scope="row" valign="top"></th><td width="60%"><input type="text" size="50" maxlength="200" name="polla_answers_new[]" />' + imageFields + '&nbsp;&nbsp;&nbsp;<input type="button" value="' + pollsAdminL10n.text_remove_poll_answer + '" onclick="remove_poll_answer_edit(' + count_poll_answer_new + ');" class="button" /></td><td width="20%" align="' + pollsAdminL10n.text_direction + '">0 <input type="text" size="4" name="polla_answers_new_votes[]" value="0" onblur="check_totalvotes();" /></td></tr>');
 		count_poll_answer_new++;
 		reorder_answer_num();
 	});
 }
+
+jQuery(document).ready(function() {
+	bind_poll_answer_image_handlers();
+});
 
 // Remove Poll's Answer In Edit Poll Page
 function remove_poll_answer_edit(poll_answer_new_id) {
