@@ -65,6 +65,17 @@
 	border:1px solid #c8c8c8;
 	background-color: #f3f6f8;
 }
+.wp-polls-answer-option {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+}
+.wp-polls-answer-image {
+	width: 40px;
+	height: 40px;
+	object-fit: cover;
+	border-radius: 4px;
+}
 /* Polls Archive Paging */
 .wp-polls-paging a, .wp-polls-paging a:link {
 	padding: 2px 4px 2px 4px; 
