@@ -53,6 +53,31 @@ $wpdb->pollsa   = $wpdb->prefix.'pollsa';
 $wpdb->pollsip  = $wpdb->prefix.'pollsip';
 
 
+### Function: Ensure Poll Answer Image Column Exists On Existing Installs
+add_action( 'plugins_loaded', 'polls_maybe_upgrade_answer_images' );
+function polls_maybe_upgrade_answer_images() {
+	global $wpdb;
+
+	$upgrade_done = (int) get_option( 'wp_polls_answer_image_upgrade_done', 0 );
+	if ( 1 === $upgrade_done ) {
+		return;
+	}
+
+	$pollsa_table = $wpdb->pollsa;
+	$table_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $pollsa_table ) );
+	if ( $table_exists !== $pollsa_table ) {
+		return;
+	}
+
+	$column_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW COLUMNS FROM ' . $pollsa_table . ' LIKE %s', 'polla_image_id' ) );
+	if ( empty( $column_exists ) ) {
+		$wpdb->query( 'ALTER TABLE ' . $pollsa_table . " ADD COLUMN polla_image_id bigint(20) unsigned NOT NULL default '0' AFTER polla_answers" );
+	}
+
+	update_option( 'wp_polls_answer_image_upgrade_done', 1 );
+}
+
+
 ### Function: Poll Administration Menu
 add_action( 'admin_menu', 'poll_menu' );
 function poll_menu() {
