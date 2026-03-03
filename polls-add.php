@@ -84,20 +84,24 @@ if ( ! empty($_POST['do'] ) ) {
 				}
 				// Add Poll Answers
 				$polla_answers = isset( $_POST['polla_answers'] ) ? $_POST['polla_answers'] : array();
+				$polla_answers_image_ids = isset( $_POST['polla_answers_image_ids'] ) ? array_map( 'absint', (array) $_POST['polla_answers_image_ids'] ) : array();
 				$polla_qid = (int) $wpdb->insert_id;
-				foreach ( $polla_answers as $polla_answer ) {
+				foreach ( $polla_answers as $index => $polla_answer ) {
 					$polla_answer = wp_kses_post( trim( $polla_answer ) );
+					$polla_image_id = isset( $polla_answers_image_ids[ $index ] ) ? absint( $polla_answers_image_ids[ $index ] ) : 0;
 					if ( ! empty( $polla_answer ) ) {
 						$add_poll_answers = $wpdb->insert(
 							$wpdb->pollsa,
 							array(
 								'polla_qid'	  => $polla_qid,
 								'polla_answers'  => $polla_answer,
+								'polla_image_id' => $polla_image_id,
 								'polla_votes'	=> 0
 							),
 							array(
 								'%d',
 								'%s',
+								'%d',
 								'%d'
 							)
 						);
@@ -160,7 +164,11 @@ $count = 0;
 			for($i = 1; $i <= $poll_noquestion; $i++) {
 				echo "<tr id=\"poll-answer-$i\">\n";
 				echo "<th width=\"20%\" scope=\"row\" valign=\"top\">".sprintf(__('Answer %s', 'wp-polls'), number_format_i18n($i))."</th>\n";
-				echo "<td width=\"80%\"><input type=\"text\" size=\"50\" maxlength=\"200\" name=\"polla_answers[]\" />&nbsp;&nbsp;&nbsp;<input type=\"button\" value=\"".__('Remove', 'wp-polls')."\" onclick=\"remove_poll_answer_add(".$i.");\" class=\"button\" /></td>\n";
+				echo "<td width=\"80%\"><input type=\"text\" size=\"50\" maxlength=\"200\" name=\"polla_answers[]\" />";
+				echo "<input type=\"hidden\" class=\"poll-answer-image-id\" name=\"polla_answers_image_ids[]\" value=\"0\" /> ";
+				echo "<span class=\"poll-answer-image-preview\"></span> ";
+				echo "<input type=\"button\" value=\"" . __( 'Upload Image', 'wp-polls' ) . "\" class=\"button poll-answer-image-upload\" /> ";
+				echo "<input type=\"button\" value=\"" . __( 'Remove Image', 'wp-polls' ) . "\" class=\"button poll-answer-image-remove\" style=\"display:none;\" />&nbsp;&nbsp;&nbsp;<input type=\"button\" value=\"".__('Remove', 'wp-polls')."\" onclick=\"remove_poll_answer_add(".$i.");\" class=\"button\" /></td>\n";
 				echo "</tr>\n";
 				$count++;
 			}

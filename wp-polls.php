@@ -228,6 +228,7 @@ function poll_scripts_admin($hook_suffix) {
 	$poll_admin_pages = array('wp-polls/polls-manager.php', 'wp-polls/polls-add.php', 'wp-polls/polls-options.php', 'wp-polls/polls-templates.php', 'wp-polls/polls-uninstall.php');
 	if(in_array($hook_suffix, $poll_admin_pages, true)) {
 		wp_enqueue_style('wp-polls-admin', plugins_url('wp-polls/polls-admin-css.css'), false, WP_POLLS_VERSION, 'all');
+		wp_enqueue_media();
 		wp_enqueue_script('wp-polls-admin', plugins_url('wp-polls/polls-admin-js.js'), array('jquery'), WP_POLLS_VERSION, true);
 		wp_localize_script('wp-polls-admin', 'pollsAdminL10n', array(
 			'admin_ajax_url' => admin_url('admin-ajax.php'),
@@ -242,9 +243,34 @@ function poll_scripts_admin($hook_suffix) {
 			'text_open_poll' => __('Open Poll', 'wp-polls'),
 			'text_close_poll' => __('Close Poll', 'wp-polls'),
 			'text_answer' => __('Answer', 'wp-polls'),
-			'text_remove_poll_answer' => __('Remove', 'wp-polls')
+			'text_remove_poll_answer' => __('Remove', 'wp-polls'),
+			'text_upload_poll_answer_image' => __('Upload Image', 'wp-polls'),
+			'text_remove_poll_answer_image' => __('Remove Image', 'wp-polls')
 		));
 	}
+}
+
+function polls_get_answer_image_html( $poll_answer_image_id, $poll_answer_text ) {
+	$poll_answer_image_id = (int) $poll_answer_image_id;
+	if ( $poll_answer_image_id <= 0 ) {
+		return '';
+	}
+
+	$poll_answer_image_url = wp_get_attachment_image_url( $poll_answer_image_id, 'thumbnail' );
+	if ( ! $poll_answer_image_url ) {
+		return '';
+	}
+
+	return '<img class="wp-polls-answer-image" src="' . esc_url( $poll_answer_image_url ) . '" alt="' . esc_attr( wp_strip_all_tags( $poll_answer_text ) ) . '" loading="lazy" />';
+}
+
+function polls_get_answer_display( $poll_answer_text, $poll_answer_image_id ) {
+	$poll_answer_image_html = polls_get_answer_image_html( $poll_answer_image_id, $poll_answer_text );
+	if ( empty( $poll_answer_image_html ) ) {
+		return $poll_answer_text;
+	}
+
+	return '<span class="wp-polls-answer-option">' . $poll_answer_image_html . '<span class="wp-polls-answer-label">' . $poll_answer_text . '</span></span>';
 }
 
 
@@ -467,7 +493,7 @@ function display_pollvote($poll_id, $display_loading = true) {
 
 	// Get Poll Answers Data
 	list($order_by, $sort_order) = _polls_get_ans_sort();
-	$poll_answers = $wpdb->get_results( $wpdb->prepare( "SELECT polla_aid, polla_qid, polla_answers, polla_votes FROM $wpdb->pollsa WHERE polla_qid = %d ORDER BY $order_by $sort_order", $poll_question_id ) );
+	$poll_answers = $wpdb->get_results( $wpdb->prepare( "SELECT polla_aid, polla_qid, polla_answers, polla_votes, polla_image_id FROM $wpdb->pollsa WHERE polla_qid = %d ORDER BY $order_by $sort_order", $poll_question_id ) );
 	// If There Is Poll Question With Answers
 	if($poll_question && $poll_answers) {
 		// Display Poll Voting Form
@@ -485,6 +511,8 @@ function display_pollvote($poll_id, $display_loading = true) {
 			$poll_answer_id = (int) $poll_answer->polla_aid;
 			$poll_answer_text = wp_kses_post( removeslashes( $poll_answer->polla_answers ) );
 			$poll_answer_votes = (int) $poll_answer->polla_votes;
+			$poll_answer_image_id = (int) $poll_answer->polla_image_id;
+			$poll_answer_display = polls_get_answer_display( $poll_answer_text, $poll_answer_image_id );
 			$poll_answer_percentage = $poll_question_totalvotes > 0 ? round( ( $poll_answer_votes / $poll_question_totalvotes ) * 100 ) : 0;
 			$poll_multiple_answer_percentage = $poll_question_totalvoters > 0 ? round( ( $poll_answer_votes / $poll_question_totalvoters ) * 100 ) : 0;
 			$template_answer = removeslashes( get_option( 'poll_template_votebody' ) );
@@ -492,7 +520,8 @@ function display_pollvote($poll_id, $display_loading = true) {
 			$template_answer_variables = array(
 				'%POLL_ID%'                         => $poll_question_id,
 				'%POLL_ANSWER_ID%'                  => $poll_answer_id,
-				'%POLL_ANSWER%'                     => $poll_answer_text,
+				'%POLL_ANSWER%'                     => $poll_answer_display,
+				'%POLL_ANSWER_IMAGE%'               => polls_get_answer_image_html( $poll_answer_image_id, $poll_answer_text ),
 				'%POLL_ANSWER_VOTES%'               => number_format_i18n( $poll_answer_votes ),
 				'%POLL_ANSWER_PERCENTAGE%'          => $poll_answer_percentage,
 				'%POLL_MULTIPLE_ANSWER_PERCENTAGE%' => $poll_multiple_answer_percentage,
@@ -611,7 +640,7 @@ function display_pollresult( $poll_id, $user_voted = array(), $display_loading =
 
 	// Get Poll Answers Data
 	list( $order_by, $sort_order ) = _polls_get_ans_result_sort();
-	$poll_answers = $wpdb->get_results( $wpdb->prepare( "SELECT polla_aid, polla_answers, polla_votes FROM $wpdb->pollsa WHERE polla_qid = %d ORDER BY $order_by $sort_order", $poll_question_id ) );
+	$poll_answers = $wpdb->get_results( $wpdb->prepare( "SELECT polla_aid, polla_answers, polla_votes, polla_image_id FROM $wpdb->pollsa WHERE polla_qid = %d ORDER BY $order_by $sort_order", $poll_question_id ) );
 	// If There Is Poll Question With Answers
 	if ( $poll_question && $poll_answers ) {
 		// Store The Percentage Of The Poll
@@ -627,6 +656,8 @@ function display_pollresult( $poll_id, $user_voted = array(), $display_loading =
 			$poll_answer_id = (int) $poll_answer->polla_aid;
 			$poll_answer_text = wp_kses_post( removeslashes( $poll_answer->polla_answers ) );
 			$poll_answer_votes = (int) $poll_answer->polla_votes;
+			$poll_answer_image_id = (int) $poll_answer->polla_image_id;
+			$poll_answer_display = polls_get_answer_display( $poll_answer_text, $poll_answer_image_id );
 			// Calculate Percentage And Image Bar Width
 			$poll_answer_percentage = 0;
 			$poll_multiple_answer_percentage = 0;
@@ -655,7 +686,8 @@ function display_pollresult( $poll_id, $user_voted = array(), $display_loading =
 			$template_variables = array(
 				'%POLL_ID%' => $poll_question_id,
 				'%POLL_ANSWER_ID%' => $poll_answer_id,
-				'%POLL_ANSWER%' => $poll_answer_text,
+				'%POLL_ANSWER%' => $poll_answer_display,
+				'%POLL_ANSWER_IMAGE%' => polls_get_answer_image_html( $poll_answer_image_id, $poll_answer_text ),
 				'%POLL_ANSWER_TEXT%' => htmlspecialchars( wp_strip_all_tags( $poll_answer_text ) ),
 				'%POLL_ANSWER_VOTES%' => number_format_i18n( $poll_answer_votes ),
 				'%POLL_ANSWER_PERCENTAGE%' => $poll_answer_percentage,
@@ -1019,10 +1051,10 @@ function polls_archive() {
 
 	// Get Poll Answers
 	list($order_by, $sort_order) = _polls_get_ans_result_sort();
-	$answers = $wpdb->get_results("SELECT polla_aid, polla_qid, polla_answers, polla_votes FROM $wpdb->pollsa WHERE polla_qid IN ($poll_questions_ids) ORDER BY $order_by $sort_order");
+	$answers = $wpdb->get_results("SELECT polla_aid, polla_qid, polla_answers, polla_votes, polla_image_id FROM $wpdb->pollsa WHERE polla_qid IN ($poll_questions_ids) ORDER BY $order_by $sort_order");
 	if($answers) {
 		foreach($answers as $answer) {
-			$polls_answers[(int)$answer->polla_qid][] = array( 'aid' => (int)$answer->polla_aid, 'qid' => (int) $answer->polla_qid, 'answers' => wp_kses_post( removeslashes( $answer->polla_answers ) ), 'votes' => (int) $answer->polla_votes );
+			$polls_answers[(int)$answer->polla_qid][] = array( 'aid' => (int)$answer->polla_aid, 'qid' => (int) $answer->polla_qid, 'answers' => wp_kses_post( removeslashes( $answer->polla_answers ) ), 'votes' => (int) $answer->polla_votes, 'image_id' => (int) $answer->polla_image_id );
 		}
 	}
 
@@ -1094,6 +1126,7 @@ function polls_archive() {
 				}
 			}
 			$polls_answer['answers'] = wp_kses_post( $polls_answer['answers'] );
+			$polls_answer_display = polls_get_answer_display( $polls_answer['answers'], $polls_answer['image_id'] );
 			// Let User See What Options They Voted
 			if (isset( $polls_ips[$polls_question['id']] ) && in_array( $polls_answer['aid'], check_voted_multiple( $polls_question['id'], $polls_ips[$polls_question['id']] ), true ) ) {
 				$template_answer = removeslashes(get_option('poll_template_resultbody2'));
@@ -1105,6 +1138,7 @@ function polls_archive() {
 				'%POLL_ID%',
 				'%POLL_ANSWER_ID%',
 				'%POLL_ANSWER%',
+				'%POLL_ANSWER_IMAGE%',
 				'%POLL_ANSWER_TEXT%',
 				'%POLL_ANSWER_VOTES%',
 				'%POLL_ANSWER_PERCENTAGE%',
@@ -1113,7 +1147,8 @@ function polls_archive() {
 			), array(
 				$polls_question['id'],
 				$polls_answer['aid'],
-				$polls_answer['answers'],
+				$polls_answer_display,
+				polls_get_answer_image_html( $polls_answer['image_id'], $polls_answer['answers'] ),
 				htmlspecialchars( wp_strip_all_tags( $polls_answer['answers'] ) ),
 				number_format_i18n( $polls_answer['votes'] ),
 				$poll_answer_percentage,
@@ -1890,6 +1925,7 @@ function polls_activate() {
 							  "polla_aid int(10) NOT NULL auto_increment," .
 							  "polla_qid int(10) NOT NULL default '0'," .
 							  "polla_answers varchar(200) character set utf8 NOT NULL default ''," .
+							  "polla_image_id bigint(20) unsigned NOT NULL default '0'," .
 							  "polla_votes int(10) NOT NULL default '0'," .
 							  "PRIMARY KEY  (polla_aid)" .
 							  ") $charset_collate;";
