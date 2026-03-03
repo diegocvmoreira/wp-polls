@@ -72,9 +72,33 @@ function polls_maybe_upgrade_answer_images() {
 	$column_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW COLUMNS FROM ' . $pollsa_table . ' LIKE %s', 'polla_image_id' ) );
 	if ( empty( $column_exists ) ) {
 		$wpdb->query( 'ALTER TABLE ' . $pollsa_table . " ADD COLUMN polla_image_id bigint(20) unsigned NOT NULL default '0' AFTER polla_answers" );
+		$column_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW COLUMNS FROM ' . $pollsa_table . ' LIKE %s', 'polla_image_id' ) );
 	}
 
-	update_option( 'wp_polls_answer_image_upgrade_done', 1 );
+	if ( ! empty( $column_exists ) ) {
+		update_option( 'wp_polls_answer_image_upgrade_done', 1 );
+	}
+}
+
+function polls_has_answer_image_column() {
+	global $wpdb;
+
+	static $has_column = null;
+	if ( null !== $has_column ) {
+		return $has_column;
+	}
+
+	$has_column = false;
+	$pollsa_table = $wpdb->pollsa;
+	$table_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $pollsa_table ) );
+	if ( $table_exists !== $pollsa_table ) {
+		return $has_column;
+	}
+
+	$column_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW COLUMNS FROM ' . $pollsa_table . ' LIKE %s', 'polla_image_id' ) );
+	$has_column = ! empty( $column_exists );
+
+	return $has_column;
 }
 
 
@@ -257,6 +281,7 @@ function poll_scripts_admin($hook_suffix) {
 		wp_enqueue_script('wp-polls-admin', plugins_url('wp-polls/polls-admin-js.js'), array('jquery'), WP_POLLS_VERSION, true);
 		wp_localize_script('wp-polls-admin', 'pollsAdminL10n', array(
 			'admin_ajax_url' => admin_url('admin-ajax.php'),
+			'has_image_support' => polls_has_answer_image_column() ? 1 : 0,
 			'text_direction' => is_rtl() ? 'right' : 'left',
 			'text_delete_poll' => __('Delete Poll', 'wp-polls'),
 			'text_no_poll_logs' => __('No poll logs available.', 'wp-polls'),
@@ -518,7 +543,9 @@ function display_pollvote($poll_id, $display_loading = true) {
 
 	// Get Poll Answers Data
 	list($order_by, $sort_order) = _polls_get_ans_sort();
-	$poll_answers = $wpdb->get_results( $wpdb->prepare( "SELECT polla_aid, polla_qid, polla_answers, polla_votes, polla_image_id FROM $wpdb->pollsa WHERE polla_qid = %d ORDER BY $order_by $sort_order", $poll_question_id ) );
+	$has_answer_image_column = polls_has_answer_image_column();
+	$poll_answers_select = $has_answer_image_column ? 'polla_aid, polla_qid, polla_answers, polla_votes, polla_image_id' : 'polla_aid, polla_qid, polla_answers, polla_votes';
+	$poll_answers = $wpdb->get_results( $wpdb->prepare( "SELECT $poll_answers_select FROM $wpdb->pollsa WHERE polla_qid = %d ORDER BY $order_by $sort_order", $poll_question_id ) );
 	// If There Is Poll Question With Answers
 	if($poll_question && $poll_answers) {
 		// Display Poll Voting Form
@@ -536,7 +563,7 @@ function display_pollvote($poll_id, $display_loading = true) {
 			$poll_answer_id = (int) $poll_answer->polla_aid;
 			$poll_answer_text = wp_kses_post( removeslashes( $poll_answer->polla_answers ) );
 			$poll_answer_votes = (int) $poll_answer->polla_votes;
-			$poll_answer_image_id = (int) $poll_answer->polla_image_id;
+			$poll_answer_image_id = $has_answer_image_column ? (int) $poll_answer->polla_image_id : 0;
 			$poll_answer_display = polls_get_answer_display( $poll_answer_text, $poll_answer_image_id );
 			$poll_answer_percentage = $poll_question_totalvotes > 0 ? round( ( $poll_answer_votes / $poll_question_totalvotes ) * 100 ) : 0;
 			$poll_multiple_answer_percentage = $poll_question_totalvoters > 0 ? round( ( $poll_answer_votes / $poll_question_totalvoters ) * 100 ) : 0;
@@ -665,7 +692,9 @@ function display_pollresult( $poll_id, $user_voted = array(), $display_loading =
 
 	// Get Poll Answers Data
 	list( $order_by, $sort_order ) = _polls_get_ans_result_sort();
-	$poll_answers = $wpdb->get_results( $wpdb->prepare( "SELECT polla_aid, polla_answers, polla_votes, polla_image_id FROM $wpdb->pollsa WHERE polla_qid = %d ORDER BY $order_by $sort_order", $poll_question_id ) );
+	$has_answer_image_column = polls_has_answer_image_column();
+	$poll_answers_select = $has_answer_image_column ? 'polla_aid, polla_answers, polla_votes, polla_image_id' : 'polla_aid, polla_answers, polla_votes';
+	$poll_answers = $wpdb->get_results( $wpdb->prepare( "SELECT $poll_answers_select FROM $wpdb->pollsa WHERE polla_qid = %d ORDER BY $order_by $sort_order", $poll_question_id ) );
 	// If There Is Poll Question With Answers
 	if ( $poll_question && $poll_answers ) {
 		// Store The Percentage Of The Poll
@@ -681,7 +710,7 @@ function display_pollresult( $poll_id, $user_voted = array(), $display_loading =
 			$poll_answer_id = (int) $poll_answer->polla_aid;
 			$poll_answer_text = wp_kses_post( removeslashes( $poll_answer->polla_answers ) );
 			$poll_answer_votes = (int) $poll_answer->polla_votes;
-			$poll_answer_image_id = (int) $poll_answer->polla_image_id;
+			$poll_answer_image_id = $has_answer_image_column ? (int) $poll_answer->polla_image_id : 0;
 			$poll_answer_display = polls_get_answer_display( $poll_answer_text, $poll_answer_image_id );
 			// Calculate Percentage And Image Bar Width
 			$poll_answer_percentage = 0;
@@ -1076,10 +1105,12 @@ function polls_archive() {
 
 	// Get Poll Answers
 	list($order_by, $sort_order) = _polls_get_ans_result_sort();
-	$answers = $wpdb->get_results("SELECT polla_aid, polla_qid, polla_answers, polla_votes, polla_image_id FROM $wpdb->pollsa WHERE polla_qid IN ($poll_questions_ids) ORDER BY $order_by $sort_order");
+	$has_answer_image_column = polls_has_answer_image_column();
+	$answers_select = $has_answer_image_column ? 'polla_aid, polla_qid, polla_answers, polla_votes, polla_image_id' : 'polla_aid, polla_qid, polla_answers, polla_votes';
+	$answers = $wpdb->get_results("SELECT $answers_select FROM $wpdb->pollsa WHERE polla_qid IN ($poll_questions_ids) ORDER BY $order_by $sort_order");
 	if($answers) {
 		foreach($answers as $answer) {
-			$polls_answers[(int)$answer->polla_qid][] = array( 'aid' => (int)$answer->polla_aid, 'qid' => (int) $answer->polla_qid, 'answers' => wp_kses_post( removeslashes( $answer->polla_answers ) ), 'votes' => (int) $answer->polla_votes, 'image_id' => (int) $answer->polla_image_id );
+			$polls_answers[(int)$answer->polla_qid][] = array( 'aid' => (int)$answer->polla_aid, 'qid' => (int) $answer->polla_qid, 'answers' => wp_kses_post( removeslashes( $answer->polla_answers ) ), 'votes' => (int) $answer->polla_votes, 'image_id' => $has_answer_image_column ? (int) $answer->polla_image_id : 0 );
 		}
 	}
 

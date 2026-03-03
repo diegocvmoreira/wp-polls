@@ -187,7 +187,11 @@ function check_totalvotes() {
 // Add Poll's Answer In Add Poll Page
 function add_poll_answer_add() {
 	jQuery(document).ready(function($) {
-		$('#poll_answers').append('<tr id="poll-answer-' + count_poll_answer + '"><th width="20%" scope="row" valign="top"></th><td width="80%"><input type="text" size="50" maxlength="200" name="polla_answers[]" /><input type="hidden" class="poll-answer-image-id" name="polla_answers_image_ids[]" value="0" /> <span class="poll-answer-image-preview"></span> <input type="button" value="' + pollsAdminL10n.text_upload_poll_answer_image + '" class="button poll-answer-image-upload" /> <input type="button" value="' + pollsAdminL10n.text_remove_poll_answer_image + '" class="button poll-answer-image-remove" style="display:none;" />&nbsp;&nbsp;&nbsp;<input type="button" value="' + pollsAdminL10n.text_remove_poll_answer + '" onclick="remove_poll_answer_add(' + count_poll_answer + ');" class="button" /></td></tr>');
+		var imageFields = '';
+		if(parseInt(pollsAdminL10n.has_image_support, 10) === 1) {
+			imageFields = '<input type="hidden" class="poll-answer-image-id" name="polla_answers_image_ids[]" value="0" /> <span class="poll-answer-image-preview"></span> <input type="button" value="' + pollsAdminL10n.text_upload_poll_answer_image + '" class="button poll-answer-image-upload" /> <input type="button" value="' + pollsAdminL10n.text_remove_poll_answer_image + '" class="button poll-answer-image-remove" style="display:none;" />';
+		}
+		$('#poll_answers').append('<tr id="poll-answer-' + count_poll_answer + '"><th width="20%" scope="row" valign="top"></th><td width="80%"><input type="text" size="50" maxlength="200" name="polla_answers[]" />' + imageFields + '&nbsp;&nbsp;&nbsp;<input type="button" value="' + pollsAdminL10n.text_remove_poll_answer + '" onclick="remove_poll_answer_add(' + count_poll_answer + ');" class="button" /></td></tr>');
 		count_poll_answer++;
 		reorder_answer_num();
 	});
@@ -204,7 +208,11 @@ function remove_poll_answer_add(poll_answer_id) {
 // Add Poll's Answer In Edit Poll Page
 function add_poll_answer_edit() {
 	jQuery(document).ready(function($) {
-		$('#poll_answers').append('<tr id="poll-answer-new-' + count_poll_answer_new + '"><th width="20%" scope="row" valign="top"></th><td width="60%"><input type="text" size="50" maxlength="200" name="polla_answers_new[]" /><input type="hidden" class="poll-answer-image-id" name="polla_answers_new_image_ids[]" value="0" /> <span class="poll-answer-image-preview"></span> <input type="button" value="' + pollsAdminL10n.text_upload_poll_answer_image + '" class="button poll-answer-image-upload" /> <input type="button" value="' + pollsAdminL10n.text_remove_poll_answer_image + '" class="button poll-answer-image-remove" style="display:none;" />&nbsp;&nbsp;&nbsp;<input type="button" value="' + pollsAdminL10n.text_remove_poll_answer + '" onclick="remove_poll_answer_edit(' + count_poll_answer_new + ');" class="button" /></td><td width="20%" align="' + pollsAdminL10n.text_direction + '">0 <input type="text" size="4" name="polla_answers_new_votes[]" value="0" onblur="check_totalvotes();" /></td></tr>');
+		var imageFields = '';
+		if(parseInt(pollsAdminL10n.has_image_support, 10) === 1) {
+			imageFields = '<input type="hidden" class="poll-answer-image-id" name="polla_answers_new_image_ids[]" value="0" /> <span class="poll-answer-image-preview"></span> <input type="button" value="' + pollsAdminL10n.text_upload_poll_answer_image + '" class="button poll-answer-image-upload" /> <input type="button" value="' + pollsAdminL10n.text_remove_poll_answer_image + '" class="button poll-answer-image-remove" style="display:none;" />';
+		}
+		$('#poll_answers').append('<tr id="poll-answer-new-' + count_poll_answer_new + '"><th width="20%" scope="row" valign="top"></th><td width="60%"><input type="text" size="50" maxlength="200" name="polla_answers_new[]" />' + imageFields + '&nbsp;&nbsp;&nbsp;<input type="button" value="' + pollsAdminL10n.text_remove_poll_answer + '" onclick="remove_poll_answer_edit(' + count_poll_answer_new + ');" class="button" /></td><td width="20%" align="' + pollsAdminL10n.text_direction + '">0 <input type="text" size="4" name="polla_answers_new_votes[]" value="0" onblur="check_totalvotes();" /></td></tr>');
 		count_poll_answer_new++;
 		reorder_answer_num();
 	});
