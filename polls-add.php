@@ -83,24 +83,25 @@ if ( ! empty($_POST['do'] ) ) {
 					$text .= '<p style="color: red;">' . sprintf(__('Error In Adding Poll \'%s\'.', 'wp-polls'), $pollq_question) . '</p>';
 				}
 				// Add Poll Answers
+				$support_answer_images = function_exists( 'polls_has_answer_image_column' ) && polls_has_answer_image_column();
 				$polla_answers = isset( $_POST['polla_answers'] ) ? $_POST['polla_answers'] : array();
+				$polla_answers_image_ids = isset( $_POST['polla_answers_image_ids'] ) ? array_map( 'absint', (array) $_POST['polla_answers_image_ids'] ) : array();
 				$polla_qid = (int) $wpdb->insert_id;
-				foreach ( $polla_answers as $polla_answer ) {
+				foreach ( $polla_answers as $index => $polla_answer ) {
 					$polla_answer = wp_kses_post( trim( $polla_answer ) );
+					$polla_image_id = isset( $polla_answers_image_ids[ $index ] ) ? absint( $polla_answers_image_ids[ $index ] ) : 0;
 					if ( ! empty( $polla_answer ) ) {
-						$add_poll_answers = $wpdb->insert(
-							$wpdb->pollsa,
-							array(
-								'polla_qid'	  => $polla_qid,
-								'polla_answers'  => $polla_answer,
-								'polla_votes'	=> 0
-							),
-							array(
-								'%d',
-								'%s',
-								'%d'
-							)
+						$add_poll_answers_data = array(
+							'polla_qid'     => $polla_qid,
+							'polla_answers' => $polla_answer,
+							'polla_votes'   => 0,
 						);
+						$add_poll_answers_format = array( '%d', '%s', '%d' );
+						if ( $support_answer_images ) {
+							$add_poll_answers_data['polla_image_id'] = $polla_image_id;
+							$add_poll_answers_format[] = '%d';
+						}
+						$add_poll_answers = $wpdb->insert( $wpdb->pollsa, $add_poll_answers_data, $add_poll_answers_format );
 						if ( ! $add_poll_answers ) {
 							$text .= '<p style="color: red;">' . sprintf(__('Error In Adding Poll\'s Answer \'%s\'.', 'wp-polls'), $polla_answer) . '</p>';
 						}
@@ -160,7 +161,14 @@ $count = 0;
 			for($i = 1; $i <= $poll_noquestion; $i++) {
 				echo "<tr id=\"poll-answer-$i\">\n";
 				echo "<th width=\"20%\" scope=\"row\" valign=\"top\">".sprintf(__('Answer %s', 'wp-polls'), number_format_i18n($i))."</th>\n";
-				echo "<td width=\"80%\"><input type=\"text\" size=\"50\" maxlength=\"200\" name=\"polla_answers[]\" />&nbsp;&nbsp;&nbsp;<input type=\"button\" value=\"".__('Remove', 'wp-polls')."\" onclick=\"remove_poll_answer_add(".$i.");\" class=\"button\" /></td>\n";
+				echo "<td width=\"80%\"><input type=\"text\" size=\"50\" maxlength=\"200\" name=\"polla_answers[]\" />";
+				if ( function_exists( 'polls_has_answer_image_column' ) && polls_has_answer_image_column() ) {
+					echo "<input type=\"hidden\" class=\"poll-answer-image-id\" name=\"polla_answers_image_ids[]\" value=\"0\" /> ";
+					echo "<span class=\"poll-answer-image-preview\"></span> ";
+					echo "<input type=\"button\" value=\"" . __( 'Upload Image', 'wp-polls' ) . "\" class=\"button poll-answer-image-upload\" /> ";
+					echo "<input type=\"button\" value=\"" . __( 'Remove Image', 'wp-polls' ) . "\" class=\"button poll-answer-image-remove\" style=\"display:none;\" />";
+				}
+				echo "&nbsp;&nbsp;&nbsp;<input type=\"button\" value=\"".__('Remove', 'wp-polls')."\" onclick=\"remove_poll_answer_add(".$i.");\" class=\"button\" /></td>\n";
 				echo "</tr>\n";
 				$count++;
 			}

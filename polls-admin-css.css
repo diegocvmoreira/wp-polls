@@ -8,3 +8,10 @@
 	height: 25px;
 	border: 1px solid #000000;
 }
+
+.poll-answer-image-preview img {
+	max-width: 48px;
+	max-height: 48px;
+	vertical-align: middle;
+	margin: 0 6px;
+}
